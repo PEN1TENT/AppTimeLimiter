@@ -78,6 +78,7 @@ fun AppPickerScreen(refreshTick: Int, modifier: Modifier = Modifier) {
     val usage = remember(refreshTick, hasAccess) {
         if (hasAccess) usageTodayMs(context) else emptyMap()
     }
+    val hasBlocker = remember(refreshTick) { isBlockerEnabled(context) }
 
     Column(modifier) {
         if (!hasAccess) {
@@ -87,6 +88,15 @@ fun AppPickerScreen(refreshTick: Int, modifier: Modifier = Modifier) {
                 },
                 modifier = Modifier.padding(16.dp)
             ) { Text("Grant usage access") }
+
+        }
+        if (!hasBlocker) {
+            Button(
+                onClick = {
+                    context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                },
+                modifier = Modifier.padding(horizontal = 16.dp)
+            ) { Text("Enable blocker (Accessibility)") }
         }
         Text(
             "Select apps to limit (${selected.size})",

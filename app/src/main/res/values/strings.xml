@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">AppTimeLimiter</string>
+    <string name="accessibility_description">Detects which app is open so it can enforce your time limits.</string>
 </resources>
