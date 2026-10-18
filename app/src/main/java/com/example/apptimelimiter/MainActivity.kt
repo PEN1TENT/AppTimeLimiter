@@ -74,27 +74,25 @@ fun AppPickerScreen(refreshTick: Int, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val apps = remember { loadApps(context) }
     var selected by remember { mutableStateOf(loadSelected(context)) }
+    var limits by remember {
+        mutableStateOf(loadSelected(context).associateWith { loadLimit(context, it) })
+    }
     val hasAccess = remember(refreshTick) { hasUsageAccess(context) }
+    val hasBlocker = remember(refreshTick) { isBlockerEnabled(context) }
     val usage = remember(refreshTick, hasAccess) {
         if (hasAccess) usageTodayMs(context) else emptyMap()
     }
-    val hasBlocker = remember(refreshTick) { isBlockerEnabled(context) }
 
     Column(modifier) {
         if (!hasAccess) {
             Button(
-                onClick = {
-                    context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
-                },
+                onClick = { context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) },
                 modifier = Modifier.padding(16.dp)
             ) { Text("Grant usage access") }
-
         }
         if (!hasBlocker) {
             Button(
-                onClick = {
-                    context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                },
+                onClick = { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) },
                 modifier = Modifier.padding(horizontal = 16.dp)
             ) { Text("Enable blocker (Accessibility)") }
         }
@@ -107,6 +105,7 @@ fun AppPickerScreen(refreshTick: Int, modifier: Modifier = Modifier) {
             items(apps, key = { it.packageName }) { app ->
                 val checked = app.packageName in selected
                 val minutes = (usage[app.packageName] ?: 0L) / 60_000
+                val limit = limits[app.packageName] ?: 30
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
@@ -115,11 +114,23 @@ fun AppPickerScreen(refreshTick: Int, modifier: Modifier = Modifier) {
                     Spacer(Modifier.width(16.dp))
                     Column(Modifier.weight(1f)) {
                         Text(app.label)
-                        if (checked && hasAccess) {
-                            Text(
-                                "$minutes min today",
-                                style = MaterialTheme.typography.bodySmall
-                            )
+                        if (checked) {
+                            if (hasAccess) {
+                                Text("$minutes / $limit min today", style = MaterialTheme.typography.bodySmall)
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                TextButton(onClick = {
+                                    val n = (limit - 5).coerceAtLeast(0)
+                                    limits = limits + (app.packageName to n)
+                                    saveLimit(context, app.packageName, n)
+                                }) { Text("−5") }
+                                Text("$limit min/day")
+                                TextButton(onClick = {
+                                    val n = limit + 5
+                                    limits = limits + (app.packageName to n)
+                                    saveLimit(context, app.packageName, n)
+                                }) { Text("+5") }
+                            }
                         }
                     }
                     Checkbox(
@@ -127,6 +138,9 @@ fun AppPickerScreen(refreshTick: Int, modifier: Modifier = Modifier) {
                         onCheckedChange = { isChecked ->
                             selected = if (isChecked) selected + app.packageName
                             else selected - app.packageName
+                            if (isChecked) {
+                                limits = limits + (app.packageName to loadLimit(context, app.packageName))
+                            }
                             saveSelected(context, selected)
                         }
                     )
