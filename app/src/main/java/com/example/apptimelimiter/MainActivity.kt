@@ -1,5 +1,6 @@
 package com.example.apptimelimiter
 
+import android.provider.Settings
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
@@ -48,13 +49,20 @@ fun saveSelected(context: Context, selected: Set<String>) {
 }
 
 class MainActivity : ComponentActivity() {
+    private var refreshTick by mutableIntStateOf(0)
+
+    override fun onResume() {
+        super.onResume()
+        refreshTick++   // re-check permission and usage when returning to the app
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             AppTimeLimiterTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { padding ->
-                    AppPickerScreen(Modifier.padding(padding))
+                    AppPickerScreen(refreshTick, Modifier.padding(padding))
                 }
             }
         }
@@ -62,27 +70,48 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun AppPickerScreen(modifier: Modifier = Modifier) {
+fun AppPickerScreen(refreshTick: Int, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val apps = remember { loadApps(context) }
     var selected by remember { mutableStateOf(loadSelected(context)) }
+    val hasAccess = remember(refreshTick) { hasUsageAccess(context) }
+    val usage = remember(refreshTick, hasAccess) {
+        if (hasAccess) usageTodayMs(context) else emptyMap()
+    }
 
     Column(modifier) {
+        if (!hasAccess) {
+            Button(
+                onClick = {
+                    context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+                },
+                modifier = Modifier.padding(16.dp)
+            ) { Text("Grant usage access") }
+        }
         Text(
             "Select apps to limit (${selected.size})",
             style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
         )
         LazyColumn {
             items(apps, key = { it.packageName }) { app ->
                 val checked = app.packageName in selected
+                val minutes = (usage[app.packageName] ?: 0L) / 60_000
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
                 ) {
                     Image(app.icon, contentDescription = null, modifier = Modifier.size(40.dp))
                     Spacer(Modifier.width(16.dp))
-                    Text(app.label, modifier = Modifier.weight(1f))
+                    Column(Modifier.weight(1f)) {
+                        Text(app.label)
+                        if (checked && hasAccess) {
+                            Text(
+                                "$minutes min today",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
                     Checkbox(
                         checked = checked,
                         onCheckedChange = { isChecked ->
