@@ -21,6 +21,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import com.example.apptimelimiter.ui.theme.AppTimeLimiterTheme
+import android.app.TimePickerDialog
 
 data class InstalledApp(val label: String, val packageName: String, val icon: ImageBitmap)
 
@@ -131,6 +132,7 @@ fun AppPickerScreen(refreshTick: Int, modifier: Modifier = Modifier) {
                                     saveLimit(context, app.packageName, n)
                                 }) { Text("+5") }
                             }
+                            WindowsEditor(app.packageName)
                         }
                     }
                     Checkbox(
@@ -147,5 +149,45 @@ fun AppPickerScreen(refreshTick: Int, modifier: Modifier = Modifier) {
                 }
             }
         }
+    }
+}
+
+@Composable
+fun WindowsEditor(pkg: String) {
+    val context = LocalContext.current
+    var windows by remember(pkg) { mutableStateOf(loadWindows(context, pkg)) }
+
+    fun pickTime(title: String, onPicked: (Int) -> Unit) {
+        TimePickerDialog(context, { _, h, m -> onPicked(h * 60 + m) }, 12, 0, true)
+            .apply { setTitle(title) }
+            .show()
+    }
+
+    Column {
+        if (windows.isEmpty()) {
+            Text("Allowed: any time", style = MaterialTheme.typography.bodySmall)
+        }
+        windows.forEach { w ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "Allowed ${formatMin(w.startMin)}–${formatMin(w.endMin)}",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                TextButton(onClick = {
+                    windows = windows - w
+                    saveWindows(context, pkg, windows)
+                }) { Text("remove") }
+            }
+        }
+        TextButton(onClick = {
+            pickTime("Allowed from") { start ->
+                pickTime("Allowed until") { end ->
+                    if (start != end) {
+                        windows = windows + TimeWindow(start, end)
+                        saveWindows(context, pkg, windows)
+                    }
+                }
+            }
+        }) { Text("+ Add allowed window") }
     }
 }

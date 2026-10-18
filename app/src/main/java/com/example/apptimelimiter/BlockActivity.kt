@@ -26,6 +26,7 @@ class BlockActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val pkg = intent.getStringExtra("pkg") ?: ""
+        val reason = intent.getStringExtra("reason")
         val label = try {
             packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString()
         } catch (e: Exception) { pkg }
@@ -41,9 +42,10 @@ class BlockActivity : ComponentActivity() {
                     ) {
                         Text("$label is blocked", style = MaterialTheme.typography.headlineMedium)
                         Spacer(Modifier.height(8.dp))
-                        Text("You've set a limit for this app.")
-                        Spacer(Modifier.height(24.dp))
-                        Button(onClick = { goHome() }) { Text("Go home") }
+                        Text(
+                            if (reason == "outside") "It's outside your allowed time for this app."
+                            else "You've reached today's limit for this app."
+                        )
                     }
                 }
             }

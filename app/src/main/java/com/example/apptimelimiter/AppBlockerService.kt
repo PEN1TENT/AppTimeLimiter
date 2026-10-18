@@ -23,15 +23,17 @@ class AppBlockerService : AccessibilityService() {
     }
 
     private fun blockIfOverLimit(pkg: String): Boolean {
-        val usedMs = usageTodayMs(this)[pkg] ?: 0L
-        val limitMs = loadLimit(this, pkg) * 60_000L
-        if (usedMs < limitMs) return false
-
+        val reason = when {
+            !isAllowedNow(this, pkg) -> "outside"
+            (usageTodayMs(this)[pkg] ?: 0L) >= loadLimit(this, pkg) * 60_000L -> "limit"
+            else -> return false
+        }
         currentPkg = null
         startActivity(
             Intent(this, BlockActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 .putExtra("pkg", pkg)
+                .putExtra("reason", reason)
         )
         return true
     }
